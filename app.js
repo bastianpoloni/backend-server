@@ -157,3 +157,15 @@ app.put('/productos/:id', (req, res) => {
         }
     });
 });
+
+app.get('/existeproducto/:code', (req, res) => {
+    const sql = 'SELECT * FROM productos WHERE productCode = ?';
+    connection.query(sql, [req.params.code], (error, results) => {
+        if (error) throw error;
+        res.status(200).json({
+            ok: true,
+            data: results[0],
+            existe: results.length > 0
+        });
+    });
+});  
