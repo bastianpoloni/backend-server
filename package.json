@@ -11,10 +11,12 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
     "body-parser": "^2.2.2",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "express-fileupload": "^1.5.2",
+    "jsonwebtoken": "^9.0.3",
     "mysql": "^2.18.1"
   },
   "devDependencies": {

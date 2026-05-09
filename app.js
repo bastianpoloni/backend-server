@@ -3,13 +3,48 @@ var mysql = require('mysql');
 var app = express();
 var cors = require('cors');
 var fileUpload = require('express-fileupload');
+var jwt= require('jsonwebtoken');
+
+let SEED= "este-es-un-seed-dificil";
+
 app.use(fileUpload());   
+
+var bcrypt = require('bcrypt');
 
 
 const bodyParser = require('body-parser');
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors());
+
+app.use(function(req,res,next){
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, x-client-key, x-client-token, x-client-secret, Authorization");
+    next();
+});
+
+app.use(function(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    
+    if (!token) {
+        return res.status(401).json({
+            message: 'Token no proporcionado'
+        });
+    }
+    
+    jwt.verify(token, SEED, (err, user) => {
+        if (err) {
+            return res.status(403).json({
+                message: 'Token inválido'
+            });
+        }
+        req.user = user;
+        next();
+    });
+});
+
 const connection = mysql.createConnection({
     host: 'localhost',
     user: 'root',
@@ -169,3 +204,48 @@ app.get('/existeproducto/:code', (req, res) => {
         });
     });
 });  
+
+app.post('/usuarios', (req, res) => {
+    const { name, email, img, role, password } = req.body;
+    let hashedPassword = bcrypt.hashSync(password, 10);
+
+    const sql = `INSERT INTO usuarios (userName, userEmail, userPassword, userImg, userRole) VALUES (?, ?, ?, ?, ?)`;
+    connection.query(sql, [name, email, hashedPassword, img, role], (err, results) => {
+        if (err) throw err;
+        res.status(201).json({
+            ok: true,
+            message: 'Usuario creado correctamente'
+        });
+    });
+});
+
+app.post('/login', (req, res) => {
+    const {email} = req.body;
+    let hashedPassword = bcrypt.hashSync(req.body.password, 10);
+
+    const sql = `SELECT * FROM usuarios WHERE userEmail = ?`;
+    connection.query(sql, [email], (err, results) => {
+        if (err) throw err;
+        if (results.length === 0) {
+            return res.status(404).json({
+                ok: false,
+                message: 'Usuario no encontrado'
+            });
+        }
+        const user = results[0];
+        const passwordMatch = bcrypt.compareSync(req.body.password, user.userPassword);
+        if (!passwordMatch) {
+            return res.status(401).json({
+                ok: false,
+                message: 'Contraseña incorrecta'
+            });
+        }
+        const token = jwt.sign({ usuario: user }, SEED, { expiresIn: 14400 });
+        res.status(200).json({
+            ok: true,
+            message: 'Login exitoso',
+            usuario: user,
+            token: token
+        });
+    });
+});
